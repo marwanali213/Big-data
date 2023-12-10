@@ -1,7 +1,7 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import *
 from pyspark.sql.functions import from_json
-from pyspark.sql.types import StructType, StringType, IntegerType, FloatType
+from pyspark.sql.types import StructType, StringType, IntegerType , FloatType
 import pymysql
 
 #conn = pymysql.connect(host=host, port=port, user=username, passwd=password, db=database)
@@ -14,18 +14,18 @@ def insert_into_phpmyadmin(row):
     database = "big_data"
     username = "root"
     password = ""
-    
+
     conn = pymysql.connect(host=host, port=port, user=username, passwd=password, db=database)
     cursor = conn.cursor()
 
     # Extract the required columns from the row
 
-    column1_value = row.population
-    column2_value = row.population_density
+    column1_value = row.location
+    column2_value = row.total_cases
 
     # Prepare the SQL query to insert data into the table
-    sql_query = f"INSERT INTO dodo(`population`, `population_density`) VALUES ('{column1_value}', '{column2_value}')"
-    
+    sql_query = f"INSERT INTO hotspots(`location`, `total_cases`) VALUES ('{column1_value}', '{column2_value}')"
+
     # Execute the SQL query
     cursor.execute(sql_query)
 
@@ -115,11 +115,17 @@ df = spark.readStream \
     .select(from_json(col("value").cast("string"), schema).alias("data")) \
 
 # Select specific columns from "data"
-df = df.select("data.population", "data.population_density")
-
+df2 = df.select("data.location", "data.new_cases")
+df = df2.groupBy("location").agg(sum("new_cases").alias("total_cases"))
+df3 = df.select("location","total_cases").orderBy("total_cases")
 # Convert the value column to string and display the result
-query = df.writeStream \
-    .outputMode("append") \
+
+
+
+
+
+query = df3.writeStream \
+    .outputMode("complete") \
     .format("console") \
     .foreach(insert_into_phpmyadmin) \
     .start()
